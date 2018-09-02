@@ -40,7 +40,7 @@ def verify_config(config):
     return has_key_check and coins_list_check
 
 
-def write_month_file(coin, month_number,data):
+def write_month_file(coin, month_number, data):
     # keep temporary data
     equity_stack = []
     month_data = []
@@ -54,8 +54,8 @@ def write_month_file(coin, month_number,data):
     number_format = '{:.' + str(config['decimal_points']) + 'f}'
     number_format_percentage = '{:.' + str(config['decimal_points']) + 'f}%'
 
-    if data is None:
-        logger.info('No data to generate. Skipping.')
+    if not data:
+        logger.info('No data to generate for month ' + str(month_number) + '. Skipping.')
     else:
         for entry in data:
             logger.debug('Queried Entry: ' + str(entry))
@@ -117,6 +117,7 @@ def write_month_file(coin, month_number,data):
             output = html_template.render_unicode(month_name=config['month_name'][month_number - 1], year=current_year, month_data=month_data, coin_name=coin.upper())
             f = open(year_directory_name + '/' + month_file_name, 'w')
             f.write(output)
+            f.close()
         except:
             traceback = RichTraceback()
             logger.error('Error while writing HTML file:')
@@ -137,7 +138,7 @@ def generate_html():
         else:
             for month in range(1,13):
                 logger.debug('Generate for month ' + str(month))
-                cursor.execute('SELECT * FROM ' + coin + ' WHERE strftime(\'%m\',time)={:02} ORDER BY datetime(time)'.format(month))
+                cursor.execute('SELECT * FROM ' + coin + ' WHERE strftime(\'%m\',time)=\'{:02}\' ORDER BY datetime(time)'.format(month))
                 all_data = cursor.fetchall()
                 write_month_file(coin, month, all_data)
 

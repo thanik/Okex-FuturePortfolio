@@ -9,7 +9,7 @@
   "database_filename": "database.db",
   "enable_bx": true,
   "moving_average": 7,
-  "generate_only_current_month": false,
+  "generate_only_current_month": true,
   "decimal_points": 4,
   "month_name": [
     "January",
