@@ -12,7 +12,7 @@ from mako.exceptions import RichTraceback
 
 OKEX_URL = 'https://www.okex.com/api/v1/future_userinfo.do'
 BX_URL = 'https://bx.in.th/api/'
-description = "This is Okex.com Future Trading Daily Profit Report Generator. " \
+description = "This is Okex.com Future Trading Daily Portfolio Report Generator. " \
               "This tool help gathering and calculating daily profit in your Okex.com future portfolio into a local database. " \
               "It can also generate HTML report for easier viewing."
 
