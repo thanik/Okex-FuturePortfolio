@@ -16,7 +16,7 @@ This is an open-source project. If you don't trust my code, you can see them in 
 
 
 # Getting Started
-(Install Python 3 if you don't have)
+(Install **Python 3** if you don't have)
 Clone this repository and copy config.sample.json as config.json then edit this file.
 
 ## config.json
@@ -35,7 +35,7 @@ generate_only_current_month | boolean | Generate (and overwrite) HTML report for
 decimal_points | integer | Number of decimal points in reports
 month_name | array of strings | Name of each month (for localization)
 
-Run `pip install -r requirements.txt` and set cron (or Task Scheduler in Windows) to run main.py every day
+Run `pip3 install -r requirements.txt` and set cron (or Task Scheduler in Windows) to run main.py every day
 
 # Command Line Arguments
 
