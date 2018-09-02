@@ -1,0 +1,28 @@
+{
+  "apiKey": "",
+  "secretKey": "",
+  "coins": [
+    "btc","eos"
+  ],
+  "html_template_file": "html_template.html",
+  "reports_folder": "reports",
+  "database_filename": "database.db",
+  "enable_bx": true,
+  "moving_average": 7,
+  "generate_only_current_month": false,
+  "decimal_points": 4,
+  "month_name": [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December"
+  ]
+}

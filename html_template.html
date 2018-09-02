@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+        <title>Okex Profit Report - ${month_name} ${year}</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+        <style>
+            body
+            {
+                background-color: #0f1215;
+            }
+
+            .red-text
+            {
+                color: #f59396;
+            }
+
+            .modal-full {
+                min-width: 100%;
+                margin: 0;
+            }
+
+            .modal-full .modal-content {
+                min-height: 100vh;
+            }
+        </style>
+    </head>
+
+    <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark justify-content-between">
+        <span class="navbar-brand" href="#">Okex Future Profit Report - ${month_name} ${year}</span>
+        <button type="button" class="btn btn-outline-light my-2 my-sm-0" data-toggle="modal" data-target=".graph-modal">Open Graph</button>
+    </nav>
+        <div class="container-fluid">
+            <div class="modal fade graph-modal" tabindex="-1" role="dialog" aria-labelledby="myLargeModalLabel" aria-hidden="true">
+              <div class="modal-dialog modal-full">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
+                      <li class="nav-item">
+                        <a class="nav-link active" id="pills-coin-equity-tab" data-toggle="pill" href="#pills-coin-equity" role="tab" aria-controls="pills-coin-equity" aria-selected="true">${coin_name} Equity</a>
+                      </li>
+                      <li class="nav-item">
+                        <a class="nav-link" id="pills-fiat-equity-tab" data-toggle="pill" href="#pills-fiat-equity" role="tab" aria-controls="pills-fiat-equity" aria-selected="false">THB Equity</a>
+                      </li>
+                      <li class="nav-item">
+                        <a class="nav-link" id="pills-coin-fiat-tab" data-toggle="pill" href="#pills-coin-fiat" role="tab" aria-controls="pills-coin-fiat" aria-selected="false">${coin_name}-THB</a>
+                      </li>
+                    </ul>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                      <span aria-hidden="true">&times;</span>
+                    </button>
+                  </div>
+                  <div class="modal-body">
+                    <div class="tab-content" id="pills-tabContent">
+                      <div class="tab-pane fade show active" id="pills-coin-equity" role="tabpanel" aria-labelledby="pills-coin-equity-tab">
+                          <canvas id="coin-equity-chart"></canvas>
+                      </div>
+                      <div class="tab-pane fade" id="pills-fiat-equity" role="tabpanel" aria-labelledby="pills-fiat-equity-tab">
+                          <canvas id="coin-fiat-equity-chart"></canvas>
+                      </div>
+                      <div class="tab-pane fade" id="pills-coin-fiat" role="tabpanel" aria-labelledby="pills-coin-fiat-tab">
+                          <canvas id="coin-fiat-chart"></canvas>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <table class="table table-dark table-striped table-bordered table-hover w-auto">
+                <thead>
+                <tr>
+                    <th rowspan="2">Date/Time</th>
+                    <th colspan="4">${coin_name}</th>
+                    <th colspan="4">THB</th>
+                </tr>
+                <tr>
+                    <th>Equity</th>
+                    <th>Changes</th>
+                    <th>% Change</th>
+                    <th>Moving Average (7)</th>
+                    <th>${coin_name} Price (from BX)</th>
+                    <th>THB Baht</th>
+                    <th>Changes</th>
+                    <th>% Change</th>
+                </tr>
+                </thead>
+
+                <tbody>
+                    % for entry in month_data:
+                    <tr>
+                        <td>${entry['time']}</td>
+                        <td>${entry['equity']}</td>
+                        <td>
+                            % if entry['change_redtext']:
+                                <span class="red-text">
+                            % endif
+                                ${entry['change']}
+                            % if entry['change_redtext']:
+                                </span>
+                            % endif
+                        </td>
+                        <td>
+                            % if entry['change_redtext']:
+                                <span class="red-text">
+                            % endif
+                                ${entry['change_percentage']}
+                            % if entry['change_redtext']:
+                                </span>
+                            % endif
+                        </td>
+                        <td>${entry['moving_average']}</td>
+                        <td>${entry['fiat_unit_price']}</td>
+                        <td>${entry['fiat_price']}</td>
+                        <td>
+                            % if entry['fiat_price_change_redtext']:
+                                <span class="red-text">
+                            % endif
+                                ${entry['fiat_price_change']}
+                            % if entry['fiat_price_change_redtext']:
+                                </span>
+                            % endif
+                        </td>
+                        <td>
+                            % if entry['fiat_price_change_redtext']:
+                                <span class="red-text">
+                            % endif
+                                ${entry['fiat_price_change_percentage']}
+                            % if entry['fiat_price_change_redtext']:
+                                </span>
+                            % endif
+                        </td>
+                    </tr>
+                    % endfor
+                </tbody>
+            </table>
+        </div>
+
+        <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.4.0/Chart.min.js" crossorigin="anonymous"></script>
+
+        <script>
+            labels = [
+                % for entry in month_data:
+                    % if loop.last:
+                        "${entry['time']}"
+                    % else:
+                        "${entry['time']}",
+                    % endif
+                % endfor
+            ];
+
+            data_coin_equity = [
+                % for entry in month_data:
+                    % if loop.last:
+                        "${entry['equity']}"
+                    % else:
+                        "${entry['equity']}",
+                    % endif
+                % endfor
+            ];
+
+            data_fiat_equity = [
+                % for entry in month_data:
+                    % if loop.last:
+                        "${entry['fiat_price']}"
+                    % else:
+                        "${entry['fiat_price']}",
+                    % endif
+                % endfor
+            ];
+
+            data_fiat_unit_price = [
+                % for entry in month_data:
+                    % if loop.last:
+                        "${entry['fiat_unit_price']}"
+                    % else:
+                        "${entry['fiat_unit_price']}",
+                    % endif
+                % endfor
+            ];
+
+            var options = {
+                hover: {
+                    mode: 'nearest',
+                    intersect: true
+                },
+                tooltips: {
+					mode: 'index',
+					intersect: false,
+				},
+
+            }
+
+            var ctx = document.getElementById('coin-equity-chart').getContext('2d');
+            var chart = new Chart(ctx, {
+                // The type of chart we want to create
+                type: 'line',
+
+                // The data for our dataset
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: "${coin_name} Equity",
+                        backgroundColor: '#007bff',
+                        borderColor: '#007bff',
+                        data: data_coin_equity,
+                    }]
+                },
+
+                // Configuration options go here
+                options: options
+            });
+
+            var ctx2 = document.getElementById('coin-fiat-equity-chart').getContext('2d');
+            var chart2 = new Chart(ctx2, {
+                // The type of chart we want to create
+                type: 'line',
+
+                // The data for our dataset
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: "THB Equity",
+                        backgroundColor: '#007bff',
+                        borderColor: '#007bff',
+                        data: data_fiat_equity,
+                    }]
+                },
+
+                // Configuration options go here
+                options: options
+            });
+
+            var ctx3 = document.getElementById('coin-fiat-chart').getContext('2d');
+            var chart3 = new Chart(ctx3, {
+                // The type of chart we want to create
+                type: 'line',
+
+                // The data for our dataset
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: "${coin_name}-THB",
+                        backgroundColor: '#007bff',
+                        borderColor: '#007bff',
+                        data: data_fiat_unit_price,
+                    }]
+                },
+
+                // Configuration options go here
+                options: options
+            });
+        </script>
+    </body>
+</html>

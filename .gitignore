@@ -1,0 +1,4 @@
+reports/*
+logs/*
+database.db
+config.json
