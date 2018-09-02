@@ -57,6 +57,7 @@ def write_month_file(coin, month_number, data):
     if not data:
         logger.info('No data to generate for month ' + str(month_number) + '. Skipping.')
     else:
+        logger.info('Building data for month ' + str(month_number) + '...')
         for entry in data:
             logger.debug('Queried Entry: ' + str(entry))
 
