@@ -19,7 +19,7 @@ description = "This is Okex.com Future Trading Daily Portfolio Report Generator.
 # setup command line argument
 parser = argparse.ArgumentParser(add_help=True, description=description)
 parser.add_argument('--generate-html', action='store_true', help='Generate HTML report for all data gathered')
-parser.add_argument('--force-add', action='store_true', help='Force gather data and append the data into database')
+parser.add_argument('--force-add', action='store_true', help='Force retrieve data and add into database (if there\'s today entry in database, it won\'t add a new one by default)')
 args = parser.parse_args()
 
 
