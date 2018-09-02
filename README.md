@@ -1,7 +1,19 @@
 # Okex-FuturePortfolio
 Okex.com Future Trading Daily Portfolio Report Generator
 
-This tool help gathering and calculating daily profit in your Okex.com future portfolio into a local database. It can also generate HTML report for easier viewing. This is my first project in Python so any code improvements and pull requests are very welcome.
+This tool help gathering and calculating daily profit in your Okex.com future portfolio into a local database. It can also generate HTML report for easier viewing. This is my first project in Python so any code improvements and pull requests are very welcome. This script requires API access to your Okex account with Trade permisssion only.
+
+HTML reports will be organized like this: reports/_[name of coin]_/_[year]_/_[month]_.html
+
+For example, the BTC profit report for October 2018 will be in reports/btc/2018/10.html
+
+
+This is an open-source project. If you don't trust my code, you can see them in main.py. I would be very appreciate if you can improve them.
+
+# Report Screenshot
+![alt text](https://i.imgur.com/W4ZvrFL.png "Screenshot1")
+![alt text](https://i.imgur.com/w9N3iN1.png "Screenshot2")
+
 
 # Getting Started
 (Install Python 3 if you don't have)
