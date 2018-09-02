@@ -114,7 +114,7 @@ def write_month_file(coin, month_number,data):
                 os.makedirs(year_directory_name)
 
             html_template = Template(filename=config['html_template_file'])
-            output = html_template.render_unicode(month_name=config['month_name'][month_number], year=current_year, month_data=month_data, coin_name=coin.upper())
+            output = html_template.render_unicode(month_name=config['month_name'][month_number - 1], year=current_year, month_data=month_data, coin_name=coin.upper())
             f = open(year_directory_name + '/' + month_file_name, 'w')
             f.write(output)
         except:
