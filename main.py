@@ -249,3 +249,4 @@ if args.generate_html:
     generate_html()
 
 database_conn.close()
+exit(0)
