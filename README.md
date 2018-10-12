@@ -1,14 +1,14 @@
 # Okex-FuturePortfolio
 Okex.com Future Trading Daily Portfolio Report Generator
 
-This tool help gathering and calculating daily profit in your Okex.com future portfolio (cross mode only) into a local database. It can also generate HTML report for easier viewing. This is my first project in Python so any code improvements and pull requests are very welcome. This script requires API access to your Okex account with Trade permisssion only.
+This tool help gathering and calculating daily profit in your Okex.com future portfolio (cross mode only) into a local database. It can also generate HTML report for easier viewing. This is my first project in Python so any code improvements and pull requests are very welcome. This script requires API access to your Okex account with Enquiry permission only (v3 API).
 
 HTML reports will be organized like this: reports/_[name of coin]_/_[year]_/_[month]_.html
 
 For example, the BTC profit report for October 2018 will be in reports/btc/2018/10.html
 
 
-This is an open-source project. If you don't trust my code, you can see them in main.py. I would be very appreciate if you can improve them.
+This is an open-source project. If you don't trust my code, you can see it in main.py. I would be very appreciate if you can improve it.
 
 # Report Screenshot
 ![alt text](https://i.imgur.com/W4ZvrFL.png "Screenshot1")
@@ -16,15 +16,16 @@ This is an open-source project. If you don't trust my code, you can see them in 
 
 
 # Getting Started
-(Install **Python 3** if you don't have)
+(Install **Python 3.6** if you don't have)
 Clone this repository and copy config.sample.json as config.json then edit this file.
 
 ## config.json
 
 Config Key| Type | Description
 --- | --- |---
-apiKey | string | API Key for Okex.com
-secretKey | string | Secret Key for Okex.com
+apiKey | string | API Key for API
+secretKey | string | Secret Key for API
+passphrase | string | Passphrase for API (new in v3 API)
 coins | array of strings | Cryptocurrency coin to gather data in lower case
 html_template_file | string | HTML Template file's name to generate reports
 reports_folder | string | Generated reports folder name

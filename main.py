@@ -1,6 +1,7 @@
 import requests
 import json
-import hashlib
+import hmac
+import base64
 import argparse
 import sqlite3
 import logging.config
@@ -10,7 +11,16 @@ from datetime import datetime
 from mako.template import Template
 from mako.exceptions import RichTraceback
 
-OKEX_URL = 'https://www.okex.com/api/v1/future_userinfo.do'
+CONTENT_TYPE = 'Content-Type'
+OK_ACCESS_KEY = 'OK-ACCESS-KEY'
+OK_ACCESS_SIGN = 'OK-ACCESS-SIGN'
+OK_ACCESS_TIMESTAMP = 'OK-ACCESS-TIMESTAMP'
+OK_ACCESS_PASSPHRASE = 'OK-ACCESS-PASSPHRASE'
+APPLICATION_JSON = 'application/json'
+
+OKEX_URL = 'https://www.okex.com'
+REQUEST_TIME_PATH = '/api/general/v3/time'
+REQUEST_PATH = '/api/futures/v3/accounts/'
 BX_URL = 'https://bx.in.th/api/'
 description = "This is Okex.com Future Trading Daily Portfolio Report Generator. " \
               "This tool help gathering and calculating daily profit in your Okex.com future portfolio into a local database. " \
@@ -19,13 +29,46 @@ description = "This is Okex.com Future Trading Daily Portfolio Report Generator.
 # setup command line argument
 parser = argparse.ArgumentParser(add_help=True, description=description)
 parser.add_argument('--generate-html', action='store_true', help='Generate HTML report for all data gathered')
-parser.add_argument('--force-add', action='store_true', help='Force retrieve data and add into database (if there\'s today entry in database, it won\'t add a new one by default)')
+parser.add_argument('--force-add', action='store_true',
+                    help='Force retrieve data and add into database (if there\'s today entry in database, it won\'t add a new one by default)')
 args = parser.parse_args()
+
+
+# okex functions
+# signature
+def signature(timestamp, method, request_path, body, secret_key):
+    if str(body) == '{}' or str(body) == 'None':
+        body = ''
+    message = str(timestamp) + str.upper(method) + request_path + str(body)
+    mac = hmac.new(bytes(secret_key, encoding='utf8'), bytes(message, encoding='utf-8'), digestmod='sha256')
+    d = mac.digest()
+    return base64.b64encode(d)
+
+
+# set request header
+def get_header(api_key, sign, timestamp, passphrase):
+    header = dict()
+    header[CONTENT_TYPE] = APPLICATION_JSON
+    header[OK_ACCESS_KEY] = api_key
+    header[OK_ACCESS_SIGN] = sign
+    header[OK_ACCESS_TIMESTAMP] = str(timestamp)
+    header[OK_ACCESS_PASSPHRASE] = passphrase
+    return header
+
+
+def parse_params_to_str(params):
+    url = '?'
+    for key, value in params.items():
+        url = url + str(key) + '=' + str(value) + '&'
+
+    return url[0:-1]
 
 
 def verify_config(config):
     coins_whitelist = ['btc', 'btg', 'etc', 'bch', 'xrp', 'eth', 'eos', 'ltc']
-    has_key_check = all(k in config for k in ('apiKey', 'secretKey', 'coins', 'html_template_file', 'reports_folder', 'enable_bx', 'database_filename', 'generate_only_current_month', 'decimal_points'))
+    has_key_check = all(k in config for k in (
+        'apiKey', 'secretKey', 'coins', 'html_template_file', 'reports_folder', 'enable_bx', 'database_filename',
+        'generate_only_current_month', 'decimal_points', "passphrase"))
     coins_list_check = isinstance(config['coins'], list)
     for coin in config['coins']:
         if coin not in coins_whitelist:
@@ -115,7 +158,8 @@ def write_month_file(coin, month_number, data):
                 os.makedirs(year_directory_name)
 
             html_template = Template(filename=config['html_template_file'])
-            output = html_template.render_unicode(month_name=config['month_name'][month_number - 1], year=current_year, month_data=month_data, coin_name=coin.upper())
+            output = html_template.render_unicode(month_name=config['month_name'][month_number - 1], year=current_year,
+                                                  month_data=month_data, coin_name=coin.upper())
             f = open(year_directory_name + '/' + month_file_name, 'w')
             f.write(output)
             f.close()
@@ -133,13 +177,16 @@ def generate_html():
     for coin in config['coins']:
         if config['generate_only_current_month']:
             logger.debug('Generate for month ' + str(datetime.now().month))
-            cursor.execute('SELECT * FROM ' + coin + ' WHERE strftime(\'%m\',time)=strftime(\'%m\',\'now\') ORDER BY datetime(time)')
+            cursor.execute(
+                'SELECT * FROM ' + coin + ' WHERE strftime(\'%m\',time)=strftime(\'%m\',\'now\') ORDER BY datetime(time)')
             all_data = cursor.fetchall()
             write_month_file(coin, datetime.now().month, all_data)
         else:
-            for month in range(1,13):
+            for month in range(1, 13):
                 logger.debug('Generate for month ' + str(month))
-                cursor.execute('SELECT * FROM ' + coin + ' WHERE strftime(\'%m\',time)=\'{:02}\' ORDER BY datetime(time)'.format(month))
+                cursor.execute(
+                    'SELECT * FROM ' + coin + ' WHERE strftime(\'%m\',time)=\'{:02}\' ORDER BY datetime(time)'.format(
+                        month))
                 all_data = cursor.fetchall()
                 write_month_file(coin, month, all_data)
 
@@ -166,25 +213,31 @@ def setup_logging(
 
 def add_entry_to_database(database_name, equity, fiatprice):
     if args.force_add:
-        cursor.execute('INSERT INTO ' + database_name + ' (equity, thbprice_per_unit, time) VALUES (?, ?, DATETIME(\'now\',\'localtime\'))', (str(equity), str(fiatprice)))
+        cursor.execute(
+            'INSERT INTO ' + database_name + ' (equity, thbprice_per_unit, time) VALUES (?, ?, DATETIME(\'now\',\'localtime\'))',
+            (str(equity), str(fiatprice)))
         logger.debug('Equity value ' + str(equity) + ' added in ' + database_name)
     else:
         cursor.execute('SELECT id FROM ' + database_name + ' WHERE DATE(time)=DATE(\'now\',\'localtime\')')
         data = cursor.fetchone()
         if data is None:
             logger.debug('No data for today. Add a new entry.')
-            cursor.execute('INSERT INTO ' + database_name + ' (equity, thbprice_per_unit, time) VALUES (?, ?, DATETIME(\'now\',\'localtime\'))', (str(equity), str(fiatprice)))
+            cursor.execute(
+                'INSERT INTO ' + database_name + ' (equity, thbprice_per_unit, time) VALUES (?, ?, DATETIME(\'now\',\'localtime\'))',
+                (str(equity), str(fiatprice)))
             logger.debug('Equity value ' + str(equity) + ' added in ' + database_name)
         else:
             logger.debug('Today data exists. Ignoring new data.')
 
 
-def get_bx_thb_price(bx_response_json,coin_name):
+def get_bx_thb_price(bx_response_json, coin_name):
     if bx_response_json is not None:
         for i in bx_response_json:
-            if coin_name.upper() == bx_response_json[i]['secondary_currency'] and bx_response_json[i]['primary_currency'] == 'THB':
+            if coin_name.upper() == bx_response_json[i]['secondary_currency'] and bx_response_json[i][
+                'primary_currency'] == 'THB':
                 return bx_response_json[i]['last_price']
     return 0
+
 
 # setup logger
 setup_logging()
@@ -210,11 +263,11 @@ database_conn = sqlite3.connect(config['database_filename'])
 cursor = database_conn.cursor()
 for coin in config['coins']:
     cursor.execute('CREATE TABLE IF NOT EXISTS ' + coin + ' ('
-                   'id INTEGER PRIMARY KEY AUTOINCREMENT,'
-                   'time DATETIME,'
-                   'equity DECIMAL(10,8),'
-                   'thbprice_per_unit DECIMAL(10,2)'
-                   ')')
+                                                          'id INTEGER PRIMARY KEY AUTOINCREMENT,'
+                                                          'time DATETIME,'
+                                                          'equity DECIMAL(10,8),'
+                                                          'thbprice_per_unit DECIMAL(10,2)'
+                                                          ')')
 
 # get data from bx
 if config['enable_bx']:
@@ -224,26 +277,39 @@ if config['enable_bx']:
 else:
     bx_response_json = None
 
-# get data from okex
-signing_data = 'api_key=' + config['apiKey'] + '&secret_key=' + config['secretKey']
-md5 = hashlib.md5()
-md5.update(signing_data.encode('utf-8'))
-sign = md5.hexdigest().upper()
-
-headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-data = 'api_key=' + config['apiKey'] + '&sign=' + sign
-response = requests.post(OKEX_URL, data=data, headers=headers)
-if response.ok:
-    response_json = response.json()
-    if response_json['result']:
-        for coin in response_json['info']:
-            if coin in config['coins']:
-                add_entry_to_database(coin, response_json['info'][coin]['account_rights'], get_bx_thb_price(bx_response_json, coin))
-        database_conn.commit()
+# # get data from okex
+# get timestamp from okex
+time_response = requests.get(OKEX_URL + REQUEST_TIME_PATH)
+time_response_json = time_response.json()
+if time_response.ok:
+    if time_response_json['epoch']:
+        timestamp = float(time_response_json['epoch']) + 28800
+        # do request
+        for coin in config['coins']:
+            # set request header
+            header = get_header(config['apiKey'],
+                                signature(timestamp, 'GET', REQUEST_PATH + coin, None, config['secretKey']),
+                                timestamp,
+                                config['passphrase'])
+            response = requests.get(OKEX_URL + REQUEST_PATH + coin, headers=header)
+            if response.ok:
+                response_json = response.json()
+                if response_json['equity']:
+                    add_entry_to_database(coin, response_json['equity'],
+                                                  get_bx_thb_price(bx_response_json, coin))
+                    database_conn.commit()
+                else:
+                    logger.error('Okex Server sent an API error while getting data for ' + coin + ' (' + str(response_json['error_code']) + ').')
+                    logger.error(str(response.json()))
+            else:
+                logger.error('Okex Server sent an error while getting data for ' + coin + ' (' + str(response.status_code) + ').')
+                logger.error(str(response.json()))
     else:
-        logger.error('Server sent an API error (' + str(response_json['error_code']) + ').')
+        logger.error('Okex Server sent an API error while getting time (' + str(time_response_json['error_code']) + ').')
+        logger.debug(str(time_response.json()))
 else:
-    logger.error('Server sent an error (' + response.status_code + ').')
+    logger.error('Okex Server sent an error while getting time (' + str(time_response.status_code) + ').')
+    logger.debug(str(time_response.json()))
 
 if args.generate_html:
     generate_html()

@@ -1,6 +1,7 @@
 {
   "apiKey": "",
   "secretKey": "",
+  "passphrase": "",
   "coins": [
     "btc","eos"
   ],
