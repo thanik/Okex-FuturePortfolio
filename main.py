@@ -17,6 +17,7 @@ OK_ACCESS_SIGN = 'OK-ACCESS-SIGN'
 OK_ACCESS_TIMESTAMP = 'OK-ACCESS-TIMESTAMP'
 OK_ACCESS_PASSPHRASE = 'OK-ACCESS-PASSPHRASE'
 APPLICATION_JSON = 'application/json'
+COINS_WHITELIST = ['btc', 'btg', 'etc', 'bch', 'xrp', 'eth', 'eos', 'ltc']
 
 OKEX_URL = 'https://www.okex.com'
 REQUEST_TIME_PATH = '/api/general/v3/time'
@@ -31,6 +32,7 @@ parser = argparse.ArgumentParser(add_help=True, description=description)
 parser.add_argument('--generate-html', action='store_true', help='Generate HTML report for all data gathered')
 parser.add_argument('--force-add', action='store_true',
                     help='Force retrieve data and add into database (if there\'s today entry in database, it won\'t add a new one by default)')
+parser.add_argument('--generate-summary', action='store_true', help='Generate summary equity for each coin in all accounts')
 args = parser.parse_args()
 
 
@@ -65,25 +67,71 @@ def parse_params_to_str(params):
 
 
 def verify_config(config):
-    coins_whitelist = ['btc', 'btg', 'etc', 'bch', 'xrp', 'eth', 'eos', 'ltc']
     has_key_check = all(k in config for k in (
-        'apiKey', 'secretKey', 'coins', 'html_template_file', 'reports_folder', 'enable_bx', 'database_filename',
-        'generate_only_current_month', 'decimal_points', "passphrase"))
-    coins_list_check = isinstance(config['coins'], list)
-    for coin in config['coins']:
-        if coin not in coins_whitelist:
-            logger.error('Coins settings is not in the market.')
+        'accounts', 'html_template_file', 'reports_folder', 'enable_bx', 'database_filename',
+        'generate_only_current_month', 'decimal_points'))
+
+    if not isinstance(config['accounts'], list):
+        logger.error('Accounts config is not an array.')
+        return False
+
+    for account in config['accounts']:
+        if not all(k in account for k in ('name', 'apiKey', 'secretKey', 'passphrase', 'coins')):
+            logger.error('Some required fields in accounts config are not found. Please check accounts config.')
             return False
+
+        if ' ' in account['name']:
+            logger.error('Whitespace is not allowed in account\'s name.')
+            return False
+
+        if account['name'].lower() == 'summary':
+            logger.error('summary is a reserved name for summary report. Please change the account\' name')
+            return False
+
+        if not isinstance(account['coins'], list):
+            logger.error('Coins settings for account "' + account['name'] + '" is not an array.')
+            return False
+
+        for coin in account['coins']:
+            if coin not in COINS_WHITELIST:
+                logger.error('Coins settings is not in the market.')
+                return False
+
     if not isinstance(config['decimal_points'], int):
         logger.error('decimal_points is not a number. (' + str(type(config['decimal_points'])) + ')')
         return False
     if not os.path.exists(config['html_template_file']):
         logger.error('HTML Template file doesn\'t exist.')
         return False
-    return has_key_check and coins_list_check
+    return has_key_check
 
 
-def write_month_file(coin, month_number, data):
+def init_db(cursor, config):
+    cursor.execute('SELECT name FROM sqlite_master WHERE type=\'table\' AND name=\'db_info\';')
+    data = cursor.fetchone()
+    if data is None:
+        logger.info('Old version database detected. Migrating to a new version...')
+        for coin in COINS_WHITELIST:
+            cursor.execute('SELECT name FROM sqlite_master WHERE type=\'table\' AND name=\'' + coin + '\';')
+            coin_table = cursor.fetchone()
+            if coin_table is not None:
+                cursor.execute('ALTER TABLE ' + coin + ' ADD COLUMN account TEXT')
+                cursor.execute('UPDATE ' + coin + ' SET account=?', (config['accounts'][0]['name'],))
+
+        cursor.execute('CREATE TABLE \'db_info\' (version INTEGER PRIMARY KEY)')
+        cursor.execute('INSERT INTO db_info (version) VALUES (2)')
+
+    for coin in COINS_WHITELIST:
+        cursor.execute('CREATE TABLE IF NOT EXISTS ' + coin + ' ('
+                                                              'id INTEGER PRIMARY KEY AUTOINCREMENT,'
+                                                              'time DATETIME,'
+                                                              'equity DECIMAL(10,8),'
+                                                              'thbprice_per_unit DECIMAL(10,2),'
+                                                              'account TEXT'
+                                                              ')')
+
+
+def write_month_file(coin_name, account_name, month_number, data):
     # keep temporary data
     equity_stack = []
     month_data = []
@@ -104,7 +152,10 @@ def write_month_file(coin, month_number, data):
         for entry in data:
             logger.debug('Queried Entry: ' + str(entry))
 
-            datetime_obj = time.strptime(entry[1], '%Y-%m-%d %H:%M:%S')
+            if account_name == 'summary':
+                datetime_obj = time.strptime(entry[1], '%Y-%m-%d')
+            else:
+                datetime_obj = time.strptime(entry[1], '%Y-%m-%d %H:%M:%S')
             current_year = str(datetime_obj.tm_year)
             equity_stack.append(entry[2])
             if current_index >= config['moving_average'] - 1:
@@ -149,7 +200,7 @@ def write_month_file(coin, month_number, data):
             old_fiat_price = entry[3] * entry[2]
             current_index += 1
 
-        year_directory_name = config['reports_folder'] + '/' + coin + '/' + current_year
+        year_directory_name = config['reports_folder'] + '/' + account_name + '/' + coin_name + '/' + current_year
         month_file_name = str(month_number) + '.html'
 
         logger.debug('Start writing file...')
@@ -159,7 +210,7 @@ def write_month_file(coin, month_number, data):
 
             html_template = Template(filename=config['html_template_file'])
             output = html_template.render_unicode(month_name=config['month_name'][month_number - 1], year=current_year,
-                                                  month_data=month_data, coin_name=coin.upper())
+                                                  month_data=month_data, coin_name=coin_name.upper(), account_name=account_name)
             f = open(year_directory_name + '/' + month_file_name, 'w')
             f.write(output)
             f.close()
@@ -173,22 +224,47 @@ def write_month_file(coin, month_number, data):
 
 
 def generate_html():
-    logger.info('Generating HTML reports...')
-    for coin in config['coins']:
-        if config['generate_only_current_month']:
-            logger.debug('Generate for month ' + str(datetime.now().month))
-            cursor.execute(
-                'SELECT * FROM ' + coin + ' WHERE strftime(\'%m\',time)=strftime(\'%m\',\'now\') ORDER BY datetime(time)')
-            all_data = cursor.fetchall()
-            write_month_file(coin, datetime.now().month, all_data)
-        else:
-            for month in range(1, 13):
-                logger.debug('Generate for month ' + str(month))
+    logger.info('Generating HTML reports for each account...')
+    for account in config['accounts']:
+        for coin in account['coins']:
+            if config['generate_only_current_month']:
+                logger.debug('Generate for month ' + str(datetime.now().month))
                 cursor.execute(
-                    'SELECT * FROM ' + coin + ' WHERE strftime(\'%m\',time)=\'{:02}\' ORDER BY datetime(time)'.format(
-                        month))
+                    'SELECT * FROM ' + coin + ' WHERE strftime(\'%m\',time)=strftime(\'%m\',\'now\') AND account=? ORDER BY datetime(time)', (account['name'],))
                 all_data = cursor.fetchall()
-                write_month_file(coin, month, all_data)
+                write_month_file(coin, account['name'], datetime.now().month, all_data)
+            else:
+                for month in range(1, 13):
+                    logger.debug('Generate for month ' + str(month))
+                    cursor.execute(
+                        'SELECT * FROM ' + coin + ' WHERE strftime(\'%m\',time)=\'{:02}\' AND account=? ORDER BY datetime(time)'.format(
+                            month), (account['name'],))
+                    all_data = cursor.fetchall()
+                    write_month_file(coin, account['name'], month, all_data)
+
+    if args.generate_summary:
+        logger.info('Generating HTML reports for summary...')
+        coins = set()
+        for account in config['accounts']:
+            for coin in account['coins']:
+                coins.add(coin)
+
+        for coin in coins:
+            if config['generate_only_current_month']:
+                logger.debug('Generate for month ' + str(datetime.now().month))
+                cursor.execute(
+                    'SELECT id,strftime(\'%Y-%m-%d\',time) AS time, SUM(equity) AS equity, thbprice_per_unit FROM ' + coin + ' WHERE strftime(\'%m\',time)=strftime(\'%m\',\'now\') GROUP BY strftime("%Y-%m-%d", time) ORDER BY time',
+                )
+                all_data = cursor.fetchall()
+                write_month_file(coin, 'summary', datetime.now().month, all_data)
+            else:
+                for month in range(1, 13):
+                    logger.debug('Generate for month ' + str(month))
+                    cursor.execute(
+                        'SELECT id,strftime(\'%Y-%m-%d\',time) AS time, SUM(equity) AS equity, thbprice_per_unit FROM ' + coin + ' WHERE strftime(\'%m\',time)=\'{:02}\' GROUP BY strftime("%Y-%m-%d", time) ORDER BY time'.format(
+                            month))
+                    all_data = cursor.fetchall()
+                    write_month_file(coin, 'summary', month, all_data)
 
 
 def setup_logging(
@@ -211,23 +287,23 @@ def setup_logging(
         logging.basicConfig(level=default_level)
 
 
-def add_entry_to_database(database_name, equity, fiatprice):
+def add_entry_to_database(coin_name, account_name, equity, fiatprice):
     if args.force_add:
         cursor.execute(
-            'INSERT INTO ' + database_name + ' (equity, thbprice_per_unit, time) VALUES (?, ?, DATETIME(\'now\',\'localtime\'))',
-            (str(equity), str(fiatprice)))
-        logger.debug('Equity value ' + str(equity) + ' added in ' + database_name)
+            'INSERT INTO ' + coin_name + ' (equity, thbprice_per_unit, time, account) VALUES (?, ?, DATETIME(\'now\',\'localtime\'), ?)',
+            (str(equity), str(fiatprice), account_name,))
+        logger.debug('Equity value ' + str(equity) + ' added in ' + coin_name + ' for account ' + account_name)
     else:
-        cursor.execute('SELECT id FROM ' + database_name + ' WHERE DATE(time)=DATE(\'now\',\'localtime\')')
+        cursor.execute('SELECT id FROM ' + coin_name + ' WHERE DATE(time)=DATE(\'now\',\'localtime\') AND account=?', (account_name,))
         data = cursor.fetchone()
         if data is None:
             logger.debug('No data for today. Add a new entry.')
             cursor.execute(
-                'INSERT INTO ' + database_name + ' (equity, thbprice_per_unit, time) VALUES (?, ?, DATETIME(\'now\',\'localtime\'))',
-                (str(equity), str(fiatprice)))
-            logger.debug('Equity value ' + str(equity) + ' added in ' + database_name)
+                'INSERT INTO ' + coin_name + ' (equity, thbprice_per_unit, time, account) VALUES (?, ?, DATETIME(\'now\',\'localtime\'), ?)',
+                (str(equity), str(fiatprice), account_name,))
+            logger.debug('Equity value ' + str(equity) + ' added in ' + coin_name + ' for account ' + account_name)
         else:
-            logger.debug('Today data exists. Ignoring new data.')
+            logger.debug('Today data exists for ' + coin_name + ' in ' + account_name + '. Ignoring new data.')
 
 
 def get_bx_thb_price(bx_response_json, coin_name):
@@ -261,13 +337,8 @@ if not verify_config(config):
 # database checking
 database_conn = sqlite3.connect(config['database_filename'])
 cursor = database_conn.cursor()
-for coin in config['coins']:
-    cursor.execute('CREATE TABLE IF NOT EXISTS ' + coin + ' ('
-                                                          'id INTEGER PRIMARY KEY AUTOINCREMENT,'
-                                                          'time DATETIME,'
-                                                          'equity DECIMAL(10,8),'
-                                                          'thbprice_per_unit DECIMAL(10,2)'
-                                                          ')')
+init_db(cursor, config)
+database_conn.commit()
 
 # get data from bx
 if config['enable_bx']:
@@ -277,39 +348,40 @@ if config['enable_bx']:
 else:
     bx_response_json = None
 
-# # get data from okex
-# get timestamp from okex
-time_response = requests.get(OKEX_URL + REQUEST_TIME_PATH)
-time_response_json = time_response.json()
-if time_response.ok:
-    if time_response_json['epoch']:
-        timestamp = float(time_response_json['epoch']) + 28800
+# get data from okex
+for account in config['accounts']:
+    for coin in account['coins']:
         # do request
-        for coin in config['coins']:
-            # set request header
-            header = get_header(config['apiKey'],
-                                signature(timestamp, 'GET', REQUEST_PATH + coin, None, config['secretKey']),
-                                timestamp,
-                                config['passphrase'])
-            response = requests.get(OKEX_URL + REQUEST_PATH + coin, headers=header)
-            if response.ok:
-                response_json = response.json()
-                if response_json['equity']:
-                    add_entry_to_database(coin, response_json['equity'],
-                                                  get_bx_thb_price(bx_response_json, coin))
-                    database_conn.commit()
+        # get timestamp from okex
+        time_response = requests.get(OKEX_URL + REQUEST_TIME_PATH)
+        time_response_json = time_response.json()
+        if time_response.ok:
+            if time_response_json['epoch']:
+                timestamp = float(time_response_json['epoch']) + 28800
+                # set request header
+                header = get_header(account['apiKey'],
+                                    signature(timestamp, 'GET', REQUEST_PATH + coin, None, account['secretKey']),
+                                    timestamp,
+                                    account['passphrase'])
+                response = requests.get(OKEX_URL + REQUEST_PATH + coin, headers=header)
+                if response.ok:
+                    response_json = response.json()
+                    if response_json['equity']:
+                        add_entry_to_database(coin, account['name'], response_json['equity'],
+                                                      get_bx_thb_price(bx_response_json, coin))
+                        database_conn.commit()
+                    else:
+                        logger.error('Okex Server sent an API error while getting data for ' + coin + ' in ' + account['name'] + ' (' + str(response_json['error_code']) + ').')
+                        logger.error(str(response.json()))
                 else:
-                    logger.error('Okex Server sent an API error while getting data for ' + coin + ' (' + str(response_json['error_code']) + ').')
+                    logger.error('Okex Server sent an error while getting data for ' + coin + ' in ' + account['name'] + ' (' + str(response.status_code) + ').')
                     logger.error(str(response.json()))
             else:
-                logger.error('Okex Server sent an error while getting data for ' + coin + ' (' + str(response.status_code) + ').')
-                logger.error(str(response.json()))
-    else:
-        logger.error('Okex Server sent an API error while getting time (' + str(time_response_json['error_code']) + ').')
-        logger.debug(str(time_response.json()))
-else:
-    logger.error('Okex Server sent an error while getting time (' + str(time_response.status_code) + ').')
-    logger.debug(str(time_response.json()))
+                logger.error('Okex Server sent an API error while getting time (' + str(time_response_json['error_code']) + ').')
+                logger.debug(str(time_response.json()))
+        else:
+            logger.error('Okex Server sent an error while getting time (' + str(time_response.status_code) + ').')
+            logger.debug(str(time_response.json()))
 
 if args.generate_html:
     generate_html()

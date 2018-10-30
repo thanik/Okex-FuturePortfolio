@@ -1,9 +1,9 @@
 # Okex-FuturePortfolio
 Okex.com Future Trading Daily Portfolio Report Generator
 
-This tool help gathering and calculating daily profit in your Okex.com future portfolio (cross mode only) into a local database. It can also generate HTML report for easier viewing. This is my first project in Python so any code improvements and pull requests are very welcome. This script requires API access to your Okex account with Enquiry permission only (v3 API).
+This tool help gathering and calculating daily profit in your Okex.com future portfolio (cross mode only) into a local database. It can also generate HTML report for easier viewing. This is my first project in Python so any code improvements and pull requests are very welcome. This script requires API access to your Okex account with Enquiry permission only (v3 API). 
 
-HTML reports will be organized like this: reports/_[name of coin]_/_[year]_/_[month]_.html
+HTML reports will be organized like this: reports/_[name of account]_/_[name of coin]_/_[year]_/_[month]_.html
 
 For example, the BTC profit report for October 2018 will be in reports/btc/2018/10.html
 
@@ -23,10 +23,7 @@ Clone this repository and copy config.sample.json as config.json then edit this 
 
 Config Key| Type | Description
 --- | --- |---
-apiKey | string | API Key for API
-secretKey | string | Secret Key for API
-passphrase | string | Passphrase for API (new in v3 API)
-coins | array of strings | Cryptocurrency coin to gather data in lower case
+accounts | array of object | List of accounts (and sub accounts) of your portfolio. See below this table for more information)
 html_template_file | string | HTML Template file's name to generate reports
 reports_folder | string | Generated reports folder name
 database_filename | string | Database file's name to store your portfolio
@@ -36,6 +33,16 @@ generate_only_current_month | boolean | Generate (and overwrite) HTML report for
 decimal_points | integer | Number of decimal points in reports
 month_name | array of strings | Name of each month (for localization)
 
+## Accounts section
+
+Config Key| Type | Description
+--- | --- |---
+name | string | Name for this account (Note: 'summary' is reserved for summary report)
+apiKey | string | API Key for API
+secretKey | string | Secret Key for API
+passphrase | string | Passphrase for API (new in v3 API)
+coins | array of strings | Cryptocurrency coin to gather data in lower case
+
 Run `pip3 install -r requirements.txt` and set cron (or Task Scheduler in Windows) to run main.py every day
 
 # Command Line Arguments
@@ -43,4 +50,5 @@ Run `pip3 install -r requirements.txt` and set cron (or Task Scheduler in Window
 Arguments|Description
 --- | ---
 --generate-html | Generate HTML report after retrieving data
+--generate-summary | Generate summary (sum equity) for all accounts
 --force-add | Force retrieve data and add into database (if there's today entry in database, it won't add a new one by default)

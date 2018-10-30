@@ -1,16 +1,26 @@
 {
-  "apiKey": "",
-  "secretKey": "",
-  "passphrase": "",
-  "coins": [
-    "btc","eos"
+  "accounts": [
+    {
+      "name": "account1",
+      "apiKey": "",
+      "secretKey": "",
+      "passphrase": "",
+      "coins": ["btc","eth"]
+    },
+    {
+      "name": "account2",
+      "apiKey": "",
+      "secretKey": "",
+      "passphrase": "",
+      "coins": ["btc"]
+    }
   ],
   "html_template_file": "html_template.html",
   "reports_folder": "reports",
   "database_filename": "database.db",
   "enable_bx": true,
   "moving_average": 7,
-  "generate_only_current_month": true,
+  "generate_only_current_month": false,
   "decimal_points": 4,
   "month_name": [
     "January",

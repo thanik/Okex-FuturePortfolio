@@ -1,4 +1,4 @@
 reports/*
 logs/*
-database.db
+*.db
 config.json
