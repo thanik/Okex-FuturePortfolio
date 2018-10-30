@@ -110,7 +110,7 @@ def init_db(cursor, config):
     cursor.execute('SELECT name FROM sqlite_master WHERE type=\'table\' AND name=\'db_info\';')
     data = cursor.fetchone()
     if data is None:
-        logger.info('Old version database detected. Migrating to a new version...')
+        logger.info('No db_info. Generating database (and migrating data if exist...')
         for coin in COINS_WHITELIST:
             cursor.execute('SELECT name FROM sqlite_master WHERE type=\'table\' AND name=\'' + coin + '\';')
             coin_table = cursor.fetchone()
