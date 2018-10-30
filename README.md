@@ -37,7 +37,7 @@ month_name | array of strings | Name of each month (for localization)
 
 Config Key| Type | Description
 --- | --- |---
-name | string | Name for this account (Note: 'summary' is reserved for summary report)
+name | string | Name for this account (Note: No whitespace allowed and 'summary' is reserved for summary report)
 apiKey | string | API Key for API
 secretKey | string | Secret Key for API
 passphrase | string | Passphrase for API (new in v3 API)
