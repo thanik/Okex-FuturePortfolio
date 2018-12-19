@@ -357,7 +357,7 @@ for account in config['accounts']:
         time_response_json = time_response.json()
         if time_response.ok:
             if time_response_json['epoch']:
-                timestamp = float(time_response_json['epoch']) + 28800
+                timestamp = float(time_response_json['epoch'])
                 # set request header
                 header = get_header(account['apiKey'],
                                     signature(timestamp, 'GET', REQUEST_PATH + coin, None, account['secretKey']),
